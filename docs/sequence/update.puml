@@ -1,0 +1,58 @@
+@startuml update
+title <b>PUT /fraud-detection/{ref}/update</b> — analyst disposition override
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam lifelineStrategy solid
+skinparam ParticipantPadding 30
+skinparam sequence {
+  ArrowColor #283593
+  ArrowThickness 1.8
+  ArrowFontSize 12
+  LifeLineBorderColor #3949AB
+  LifeLineBorderThickness 2.5
+  GroupBorderColor #8E24AA
+  GroupBorderThickness 2
+  GroupBackgroundColor #F3E5F5
+  GroupHeaderFontStyle bold
+  DividerBackgroundColor #E8EAF6
+  DividerFontStyle bold
+}
+skinparam participant {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst" as Client #ECEFF1
+participant "FraudDetectionResource" as API #dae8fc
+participant "FraudDetectionService" as SVC #e1d5e7
+participant "FraudEvaluation\n(Panache)" as ORM #fff2cc
+database "PostgreSQL" as DB #d5e8d4
+
+autonumber "<b>0."
+
+Client -> API : PUT /fraud-detection/{ref}/update\n{decision, caseNarrative, riskScore?}
+activate API #dae8fc
+API -> SVC : update(ref, UpdateRequest)
+activate SVC #e1d5e7
+SVC -> ORM : findByReference(ref)
+activate ORM #fff2cc
+ORM -> DB : SELECT ... WHERE reference_id = ?
+DB --> ORM : row | null
+deactivate ORM
+alt not found #FFEBEE
+  SVC --> API : NotFoundException
+  API --> Client : <b>404</b>
+end
+SVC -> SVC : override decision / caseNarrative /\nriskScore (null fields untouched)\nstatus = DISPOSED
+SVC -> DB : UPDATE fraud_evaluation\n(@Transactional dirty checking)
+DB --> SVC : ok
+SVC --> API : updated control record
+deactivate SVC
+API --> Client : <b>200</b> {…, status: DISPOSED}
+deactivate API
+@enduml

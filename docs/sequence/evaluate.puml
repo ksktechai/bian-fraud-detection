@@ -1,0 +1,72 @@
+@startuml evaluate
+title <b>POST /fraud-detection/{ref}/evaluate</b> — AI triage via Gemini
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam lifelineStrategy solid
+skinparam ParticipantPadding 30
+skinparam sequence {
+  ArrowColor #283593
+  ArrowThickness 1.8
+  ArrowFontSize 12
+  LifeLineBorderColor #3949AB
+  LifeLineBorderThickness 2.5
+  GroupBorderColor #8E24AA
+  GroupBorderThickness 2
+  GroupBackgroundColor #F3E5F5
+  GroupHeaderFontStyle bold
+  DividerBackgroundColor #E8EAF6
+  DividerFontStyle bold
+}
+skinparam participant {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst / Client" as Client #ECEFF1
+participant "FraudDetectionResource" as API #dae8fc
+participant "FraudDetectionService" as SVC #e1d5e7
+participant "FraudTriageService" as TRIAGE #f3e0f7
+participant "FraudTriageAgent\n@RegisterAiService" as AGENT #f3e0f7
+participant "Google Gemini\ngemini-2.0-flash" as LLM #ffe6cc
+database "PostgreSQL" as DB #d5e8d4
+
+autonumber "<b>0."
+
+Client -> API : POST /fraud-detection/{ref}/evaluate
+activate API #dae8fc
+API -> SVC : evaluate(ref)
+activate SVC #e1d5e7
+SVC -> DB : findById(ref)
+DB --> SVC : control record | null
+alt not found #FFEBEE
+  SVC --> API : NotFoundException
+  API --> Client : <b>404</b>
+end
+SVC -> SVC : serialise txn fields to JSON
+SVC -> TRIAGE : triage(transactionJson)
+activate TRIAGE #f3e0f7
+TRIAGE -> AGENT : triage(json)
+activate AGENT #f3e0f7
+AGENT -> LLM : system + user prompt\n(return ONLY JSON)
+activate LLM #ffe6cc
+LLM --> AGENT : raw model text
+deactivate LLM
+AGENT --> TRIAGE : String
+deactivate AGENT
+TRIAGE -> TRIAGE : extract { … }, parse,\nclamp riskScore, validate decision
+alt parse fails #FFEBEE
+  note right of TRIAGE #ffcdd2 : default to <b>REVIEW</b>,\nraw text → reasoning (fail-safe)
+end
+TRIAGE --> SVC : FraudVerdict\n{riskScore, decision, reasoning, caseNarrative}
+deactivate TRIAGE
+SVC -> DB : UPDATE fraud_evaluation\nstatus = EVALUATED (dirty checking)
+SVC --> API : updated control record
+deactivate SVC
+API --> Client : <b>200</b> {riskScore, decision,\naiReasoning, caseNarrative, status: EVALUATED}
+deactivate API
+@enduml

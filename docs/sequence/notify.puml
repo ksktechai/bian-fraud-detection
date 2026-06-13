@@ -1,0 +1,65 @@
+@startuml notify
+title <b>POST /fraud-detection/{ref}/notify</b> — emit + log an alert event
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam lifelineStrategy solid
+skinparam ParticipantPadding 30
+skinparam sequence {
+  ArrowColor #283593
+  ArrowThickness 1.8
+  ArrowFontSize 12
+  LifeLineBorderColor #3949AB
+  LifeLineBorderThickness 2.5
+  GroupBorderColor #8E24AA
+  GroupBorderThickness 2
+  GroupBackgroundColor #F3E5F5
+  GroupHeaderFontStyle bold
+  DividerBackgroundColor #E8EAF6
+  DividerFontStyle bold
+}
+skinparam participant {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst / Client" as Client #ECEFF1
+participant "FraudDetectionResource" as API #dae8fc
+participant "FraudDetectionService" as SVC #e1d5e7
+participant "CDI Event<AlertEvent>" as EVT #d0e0e3
+participant "AlertListener" as LIS #d0e0e3
+database "PostgreSQL" as DB #d5e8d4
+
+autonumber "<b>0."
+
+Client -> API : POST /fraud-detection/{ref}/notify\n{message?}
+activate API #dae8fc
+API -> SVC : notify(ref, message)
+activate SVC #e1d5e7
+SVC -> DB : findByReference(ref)
+DB --> SVC : control record | null
+alt not found #FFEBEE
+  SVC --> API : NotFoundException
+  API --> Client : <b>404</b>
+end
+SVC -> SVC : build message\n(default if blank)
+SVC -> EVT : fire(AlertEvent\n{referenceId, transactionId,\ndecision, riskScore, message})
+activate EVT #d0e0e3
+EVT -> LIS : @Observes AlertEvent
+activate LIS #d0e0e3
+LIS -> LIS : Log.warnf("FRAUD-ALERT …")
+note right of LIS #E1F5FE
+  Logging today; same event is the seam
+  for Kafka / email / a case-management system.
+end note
+deactivate LIS
+deactivate EVT
+SVC --> API : control record
+deactivate SVC
+API --> Client : <b>200</b> {control record}
+deactivate API
+@enduml

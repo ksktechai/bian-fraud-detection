@@ -1,0 +1,58 @@
+@startuml initiate
+title <b>POST /fraud-detection/initiate</b> — create the BIAN control record
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam lifelineStrategy solid
+skinparam ParticipantPadding 30
+skinparam sequence {
+  ArrowColor #283593
+  ArrowThickness 1.8
+  ArrowFontSize 12
+  LifeLineBorderColor #3949AB
+  LifeLineBorderThickness 2.5
+  GroupBorderColor #8E24AA
+  GroupBorderThickness 2
+  GroupBackgroundColor #F3E5F5
+  GroupHeaderFontStyle bold
+  DividerBackgroundColor #E8EAF6
+  DividerFontStyle bold
+}
+skinparam participant {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst / Client" as Client #ECEFF1
+participant "HttpLoggingFilter" as LOG #cfe2f3
+participant "FraudDetectionResource" as API #dae8fc
+participant "FraudDetectionService" as SVC #e1d5e7
+participant "FraudEvaluation\n(Panache)" as ORM #fff2cc
+database "PostgreSQL" as DB #d5e8d4
+
+autonumber "<b>0."
+
+Client -> LOG : POST /fraud-detection/initiate\n{transactionId, amount, type,\nnameOrig, nameDest, balances}
+activate LOG #cfe2f3
+LOG -> LOG : generate correlationId (UUID)\nput in MDC, log >>> body
+LOG -> API : forward request
+activate API #dae8fc
+API -> SVC : initiate(InitiateRequest)
+activate SVC #e1d5e7
+SVC -> ORM : new FraudEvaluation\nreferenceId = UUID.randomUUID()\nstatus = INITIATED
+activate ORM #fff2cc
+ORM -> DB : INSERT INTO fraud_evaluation
+DB --> ORM : ok
+deactivate ORM
+SVC --> API : control record
+deactivate SVC
+API --> LOG : 201 + EvaluationResponse
+deactivate API
+LOG -> LOG : add X-Correlation-Id header\nlog <<< status + duration, clear MDC
+LOG --> Client : <b>201</b> {referenceId, status: INITIATED, …}
+deactivate LOG
+@enduml

@@ -1,0 +1,57 @@
+@startuml retrieve
+title <b>GET /fraud-detection/{ref}/retrieve</b> — read the control record
+
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam lifelineStrategy solid
+skinparam ParticipantPadding 30
+skinparam sequence {
+  ArrowColor #283593
+  ArrowThickness 1.8
+  ArrowFontSize 12
+  LifeLineBorderColor #3949AB
+  LifeLineBorderThickness 2.5
+  GroupBorderColor #8E24AA
+  GroupBorderThickness 2
+  GroupBackgroundColor #F3E5F5
+  GroupHeaderFontStyle bold
+  DividerBackgroundColor #E8EAF6
+  DividerFontStyle bold
+}
+skinparam participant {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst / Client" as Client #ECEFF1
+participant "FraudDetectionResource" as API #dae8fc
+participant "FraudDetectionService" as SVC #e1d5e7
+participant "FraudEvaluation\n(Panache)" as ORM #fff2cc
+database "PostgreSQL" as DB #d5e8d4
+
+autonumber "<b>0."
+
+Client -> API : GET /fraud-detection/{ref}/retrieve
+activate API #dae8fc
+API -> SVC : retrieve(ref)
+activate SVC #e1d5e7
+SVC -> ORM : findByReference(ref)
+activate ORM #fff2cc
+ORM -> DB : SELECT * FROM fraud_evaluation\nWHERE reference_id = ?
+DB --> ORM : row | null
+deactivate ORM
+
+alt found
+  SVC --> API : control record
+  API --> Client : <b>200</b> {full control record}
+else not found #FFEBEE
+  SVC --> API : NotFoundException
+  API --> Client : <b>404</b>
+end
+deactivate SVC
+deactivate API
+@enduml

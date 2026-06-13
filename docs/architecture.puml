@@ -1,0 +1,70 @@
+@startuml architecture
+title <b>BIAN Fraud Detection — Service Domain Architecture</b>
+
+skinparam shadowing false
+skinparam roundCorner 12
+skinparam defaultFontName Helvetica
+skinparam ArrowColor #283593
+skinparam ArrowThickness 1.6
+skinparam rectangle {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam database {
+  BorderThickness 2
+  FontStyle bold
+}
+skinparam component {
+  BorderThickness 2
+  FontStyle bold
+}
+
+actor "Analyst /\nClient" as Client #ECEFF1
+
+rectangle "JAX-RS layer" as REST #dae8fc {
+  component "FraudDetectionResource\n/fraud-detection/{ref}/…\ninitiate · evaluate · retrieve · update · notify" as API #dae8fc
+  component "HttpLoggingFilter\ncorrelationId · MDC · X-Correlation-Id\nbody truncation (app.logging.max-body)\n[hook] PII redaction" as LOG #cfe2f3
+}
+
+rectangle "Domain / orchestration" as DOMAIN #e1d5e7 {
+  component "FraudDetectionService\n@Transactional lifecycle\nINITIATED → EVALUATED → DISPOSED" as SVC #e1d5e7
+  component "FraudTriageService\nsafe JSON parse → FraudVerdict\nfallback ⇒ REVIEW" as TRIAGE #f3e0f7
+}
+
+rectangle "AI layer (LangChain4j)" as AI #f3e0f7 {
+  component "FraudTriageAgent\n@RegisterAiService\nString triage(json)" as AGENT #f3e0f7
+}
+
+rectangle "Eventing" as EVT #d0e0e3 {
+  component "AlertEvent (CDI)\n→ AlertListener (logs;\nKafka/case-system seam)" as ALERT #d0e0e3
+}
+
+rectangle "Data loading" as LOAD #d0e0e3 {
+  component "DataLoader\n@Observes StartupEvent\nPaySim CSV → staging\n(app.dataset.max-rows)" as LOADER #d0e0e3
+}
+
+database "PostgreSQL\nfraud_evaluation (control records)\nfraud_txn_sample (PaySim staging)\nFlyway V1__init.sql" as DB #d5e8d4
+component "Google Gemini\ngemini-2.0-flash\nGEMINI_API_KEY" as LLM #ffe6cc
+file "./data/*.csv\nPaySim dataset (Kaggle)" as CSV #ffe6cc
+
+Client --> API : HTTPS (JSON)
+API ..> LOG : <<provider filter>>
+API --> SVC
+SVC --> TRIAGE : evaluate
+TRIAGE --> AGENT
+AGENT --> LLM : chat completion
+SVC --> ALERT : notify fires event
+SVC --> DB : Panache (FraudEvaluation)
+LOADER --> CSV : read first N rows
+LOADER --> DB : JDBC batch insert
+DB <.. LLM
+
+legend right
+  | <#dae8fc> | REST / API |
+  | <#e1d5e7> | Orchestration |
+  | <#f3e0f7> | AI agents |
+  | <#d0e0e3> | Services / eventing |
+  | <#d5e8d4> | Data (Postgres) |
+  | <#ffe6cc> | External (Gemini, dataset) |
+endlegend
+@enduml

@@ -1,0 +1,1455 @@
+{
+  "info": {
+    "_postman_id": "b1a0fd2e-4c7a-4d1e-9f3a-7c2e5a9d0011",
+    "name": "bian-fraud-detection",
+    "description": "BIAN Fraud Detection service domain. Uses {{baseUrl}} (default localhost:8080) and a {{ref}} collection variable. Requests that initiate a control record capture the returned referenceId into {{ref}} via a test script, so the following requests chain. The 'Evaluate scenarios' folders are self-contained (each seeds its own transaction, then evaluates it). Run folders top-to-bottom, or use the Collection Runner.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "ref",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Lifecycle (run in order)",
+      "item": [
+        {
+          "name": "initiate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "BIAN Initiate \u2014 create a control record (status INITIATED) and capture referenceId."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "evaluate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "{{ref}}",
+                "evaluate"
+              ]
+            },
+            "description": "BIAN Evaluate \u2014 run AI triage (Gemini) and persist riskScore/decision/reasoning."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('EVALUATED', () => pm.expect(pm.response.json().status).to.eql('EVALUATED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/{{ref}}/retrieve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "{{ref}}",
+                "retrieve"
+              ]
+            },
+            "description": "BIAN Retrieve \u2014 return the control record."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "update (analyst override)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/{{ref}}/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "{{ref}}",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"CLEAR\",\n  \"caseNarrative\": \"Confirmed legitimate with customer.\",\n  \"riskScore\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "BIAN Update \u2014 analyst disposition override (status DISPOSED)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('DISPOSED', () => pm.expect(pm.response.json().status).to.eql('DISPOSED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "notify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/{{ref}}/notify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "{{ref}}",
+                "notify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Escalated to the financial crime team.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "BIAN Notify \u2014 emit and log a fraud alert event."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "The canonical happy path: initiate -> evaluate -> retrieve -> update -> notify."
+    },
+    {
+      "name": "02 Initiate variations",
+      "item": [
+        {
+          "name": "initiate \u2014 TRANSFER (account drained, high risk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "initiate \u2014 CASH_OUT (large)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-CASHOUT-002\",\n  \"amount\": 416001.33,\n  \"type\": \"CASH_OUT\",\n  \"nameOrig\": \"C1305486145\",\n  \"nameDest\": \"C553264065\",\n  \"oldbalanceOrg\": 416001.33,\n  \"newbalanceOrig\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "initiate \u2014 PAYMENT (small, low risk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-PAY-003\",\n  \"amount\": 9839.64,\n  \"type\": \"PAYMENT\",\n  \"nameOrig\": \"C1231006815\",\n  \"nameDest\": \"M1979787155\",\n  \"oldbalanceOrg\": 170136.0,\n  \"newbalanceOrig\": 160296.36\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "initiate \u2014 DEBIT (moderate)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-DEBIT-004\",\n  \"amount\": 5337.77,\n  \"type\": \"DEBIT\",\n  \"nameOrig\": \"C712410124\",\n  \"nameDest\": \"C195600860\",\n  \"oldbalanceOrg\": 41720.0,\n  \"newbalanceOrig\": 36382.23\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "initiate \u2014 CASH_IN (deposit)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "initiate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN-CASHIN-005\",\n  \"amount\": 120000.0,\n  \"type\": \"CASH_IN\",\n  \"nameOrig\": \"C1421785742\",\n  \"nameDest\": \"C1307727890\",\n  \"oldbalanceOrg\": 0.0,\n  \"newbalanceOrig\": 120000.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                  "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Different PaySim transaction shapes. Each captures its own {{ref}}."
+    },
+    {
+      "name": "03 Evaluate scenarios (seed -> evaluate)",
+      "item": [
+        {
+          "name": "High-risk TRANSFER drain",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "evaluate",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "evaluate"
+                  ]
+                },
+                "description": "Expect a high riskScore and BLOCK/REVIEW from the model."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Large CASH_OUT",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-CASHOUT-002\",\n  \"amount\": 416001.33,\n  \"type\": \"CASH_OUT\",\n  \"nameOrig\": \"C1305486145\",\n  \"nameDest\": \"C553264065\",\n  \"oldbalanceOrg\": 416001.33,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "evaluate",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "evaluate"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Low-risk PAYMENT",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-PAY-003\",\n  \"amount\": 9839.64,\n  \"type\": \"PAYMENT\",\n  \"nameOrig\": \"C1231006815\",\n  \"nameDest\": \"M1979787155\",\n  \"oldbalanceOrg\": 170136.0,\n  \"newbalanceOrig\": 160296.36\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "evaluate",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "evaluate"
+                  ]
+                },
+                "description": "Expect a low riskScore and CLEAR from the model."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Re-evaluate (idempotent call on same ref)",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-DEBIT-004\",\n  \"amount\": 5337.77,\n  \"type\": \"DEBIT\",\n  \"nameOrig\": \"C712410124\",\n  \"nameDest\": \"C195600860\",\n  \"oldbalanceOrg\": 41720.0,\n  \"newbalanceOrig\": 36382.23\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "evaluate #1",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "evaluate"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "evaluate #2",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/evaluate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "evaluate"
+                  ]
+                },
+                "description": "Calling evaluate again re-runs triage and overwrites the verdict."
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Each sub-folder is self-contained: it seeds a transaction then evaluates it."
+    },
+    {
+      "name": "04 Update variations (seed -> update)",
+      "item": [
+        {
+          "name": "Override to CLEAR (false positive)",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-PAY-003\",\n  \"amount\": 9839.64,\n  \"type\": \"PAYMENT\",\n  \"nameOrig\": \"C1231006815\",\n  \"nameDest\": \"M1979787155\",\n  \"oldbalanceOrg\": 170136.0,\n  \"newbalanceOrig\": 160296.36\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "update",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/update",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "update"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"CLEAR\",\n  \"caseNarrative\": \"False positive \\u2014 verified payroll vendor.\",\n  \"riskScore\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Override to BLOCK (confirmed fraud)",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "update",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/update",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "update"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"BLOCK\",\n  \"caseNarrative\": \"Confirmed account takeover; card blocked.\",\n  \"riskScore\": 99\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Override to REVIEW (needs investigation)",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-CASHOUT-002\",\n  \"amount\": 416001.33,\n  \"type\": \"CASH_OUT\",\n  \"nameOrig\": \"C1305486145\",\n  \"nameDest\": \"C553264065\",\n  \"oldbalanceOrg\": 416001.33,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "update",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/update",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "update"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"decision\": \"REVIEW\",\n  \"caseNarrative\": \"Awaiting customer callback.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Analyst disposition overrides. Decision/narrative/riskScore are all optional (null = untouched)."
+    },
+    {
+      "name": "05 Notify variations (seed -> notify)",
+      "item": [
+        {
+          "name": "Default alert message",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "notify (no body fields)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/notify",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "notify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Custom escalation message",
+          "item": [
+            {
+              "name": "seed",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/initiate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "initiate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"transactionId\": \"TXN-DRAIN-001\",\n  \"amount\": 9000000.0,\n  \"type\": \"TRANSFER\",\n  \"nameOrig\": \"C840083671\",\n  \"nameDest\": \"C38997010\",\n  \"oldbalanceOrg\": 9000000.0,\n  \"newbalanceOrig\": 0.0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('ref', pm.response.json().referenceId);",
+                      "console.log('captured ref =', pm.collectionVariables.get('ref'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "notify",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/fraud-detection/{{ref}}/notify",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "fraud-detection",
+                    "{{ref}}",
+                    "notify"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"SAR filed; escalated to AML team and relationship manager.\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Emit a fraud alert event (logged by AlertListener). Message is optional."
+    },
+    {
+      "name": "06 Error cases (expect 404)",
+      "item": [
+        {
+          "name": "retrieve unknown ref",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/00000000-0000-0000-0000-000000000000/retrieve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "00000000-0000-0000-0000-000000000000",
+                "retrieve"
+              ]
+            },
+            "description": "Unknown reference id returns 404."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "evaluate unknown ref",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/00000000-0000-0000-0000-000000000000/evaluate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "00000000-0000-0000-0000-000000000000",
+                "evaluate"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "update unknown ref",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/00000000-0000-0000-0000-000000000000/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "00000000-0000-0000-0000-000000000000",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"CLEAR\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "notify unknown ref",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fraud-detection/00000000-0000-0000-0000-000000000000/notify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "fraud-detection",
+                "00000000-0000-0000-0000-000000000000",
+                "notify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Negative paths \u2014 every operation on a missing control record returns 404."
+    }
+  ]
+}
