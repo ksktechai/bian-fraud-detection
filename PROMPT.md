@@ -74,6 +74,10 @@ Use Flyway migration V1__init.sql to create the table.
   clearly-marked hook for PII redaction.
 - Mirror fundlens's log format (`>>>` / `<<<`) and the correlationId/MDC pattern. If a logging
   filter or interceptor already exists in fundlens, replicate its structure and naming here.
+- Secret hygiene: the langchain4j Gemini client logs the API key in the request URL
+  (`?key=...`). Keep LLM request/response logging OFF by default (`LOG_LLM=false`) AND add a
+  `@LoggingFilter` (`quarkus.log.console.filter`) that redacts `key=...` / `AIza...` so the key
+  can never reach the logs even when LLM logging is enabled.
 
 ## CONFIG (application.properties)
 - quarkus.langchain4j.chat-model.provider=${LLM_PROVIDER:ai-gemini} (BUILD-TIME; ai-gemini|ollama)
