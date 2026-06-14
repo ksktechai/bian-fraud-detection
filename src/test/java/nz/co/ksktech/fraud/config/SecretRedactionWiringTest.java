@@ -5,46 +5,57 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.quarkus.test.junit.QuarkusTest;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Filter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
-import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import org.jboss.logmanager.ExtLogRecord;
 import org.junit.jupiter.api.Test;
 
 /**
- * Proves that secret redaction is actually wired into the live logging pipeline at runtime (via
- * {@link LogRedactionInstaller}) — not just that {@link SecretRedactingLogFilter}'s logic is
- * correct. If this regresses, the Gemini API key could leak into logs again. The check is
- * behavioural: it feeds a key-bearing record (key in a parameter, as the langchain4j logger does)
- * through each attached handler filter and asserts at least one redacts it.
+ * Proves end-to-end that the Gemini API key is redacted in the LIVE logging pipeline — not just
+ * that {@link SecretRedactingLogFilter}'s logic is correct in isolation. It builds the exact record
+ * the langchain4j {@code AiClientLogger} produces (a jboss {@link ExtLogRecord}, PRINTF style, with
+ * the key-bearing URL as a parameter), runs it through a real attached handler, and checks the
+ * FORMATTED output. If redaction regresses (e.g. the installer stops attaching), this fails.
  */
 @QuarkusTest
 class SecretRedactionWiringTest {
 
+  private static final String FAKE_KEY = "AQ.Fake000ExampleNotARealKey00000000000000";
+  private static final String URL_WITH_KEY =
+      "https://generativelanguage.googleapis.com/v1beta/models/m:generateContent?key=" + FAKE_KEY;
+
   @Test
-  void aHandlerFilterRedactsTheApiKeyAtRuntime() {
-    List<Filter> filters = new ArrayList<>();
-    collect(LogManager.getLogManager().getLogger(""), filters);
+  void aiClientLoggerStyleRequestIsRedactedInFormattedOutput() {
+    List<Handler> handlers = new ArrayList<>();
+    collect(LogManager.getLogManager().getLogger(""), handlers);
 
-    assertThat(filters).as("expected at least one handler filter to be attached").isNotEmpty();
-    assertThat(filters).anyMatch(SecretRedactionWiringTest::redactsKey);
+    boolean someHandlerRedacts = false;
+    for (Handler h : handlers) {
+      if (h.getFilter() == null) {
+        continue;
+      }
+      // exact shape of AiGeminiRestApi$AiClientLogger: infof("...- url: %s...", url)
+      ExtLogRecord rec =
+          new ExtLogRecord(Level.INFO, "Request:\n- url: %s", ExtLogRecord.FormatStyle.PRINTF, "test");
+      rec.setParameters(new Object[] {URL_WITH_KEY});
+
+      h.getFilter().isLoggable(rec); // run the (composed) handler filter — redacts in place
+
+      String formatted = rec.getFormattedMessage();
+      if (!formatted.contains(FAKE_KEY)) {
+        assertThat(formatted).contains("key=***REDACTED***");
+        someHandlerRedacts = true;
+      }
+    }
+
+    assertThat(someHandlerRedacts)
+        .as("a live log handler must redact the Gemini API key from request URLs")
+        .isTrue();
   }
 
-  private static boolean redactsKey(Filter filter) {
-    LogRecord r = new LogRecord(Level.INFO, "Request:\n- url: %s");
-    r.setParameters(
-        new Object[] {
-          "https://generativelanguage.googleapis.com/v1beta/models/m:generateContent"
-              + "?key=AQ.Fake000ExampleNotARealKey00000000000000"
-        });
-    filter.isLoggable(r);
-    String url = String.valueOf(r.getParameters()[0]);
-    return !url.contains("AQ.Fake000ExampleNotARealKey00000000000000");
-  }
-
-  private static void collect(Logger logger, List<Filter> out) {
+  private static void collect(Logger logger, List<Handler> out) {
     if (logger == null) {
       return;
     }
@@ -53,13 +64,11 @@ class SecretRedactionWiringTest {
     }
   }
 
-  private static void collect(Handler handler, List<Filter> out) {
+  private static void collect(Handler handler, List<Handler> out) {
     if (handler == null) {
       return;
     }
-    if (handler.getFilter() != null) {
-      out.add(handler.getFilter());
-    }
+    out.add(handler);
     try {
       Object nested = handler.getClass().getMethod("getHandlers").invoke(handler);
       if (nested instanceof Handler[] handlers) {
