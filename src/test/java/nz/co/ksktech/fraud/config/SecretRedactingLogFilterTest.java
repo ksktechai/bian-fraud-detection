@@ -45,6 +45,26 @@ class SecretRedactingLogFilterTest {
   }
 
   @Test
+  void redactsKeyHeldInLogRecordParameters() {
+    // reproduces the langchain4j AiClientLogger case: infof("...- url: %s...", url)
+    // where the key lives in a parameter, not the message string
+    LogRecord r = new LogRecord(Level.INFO, "Request:\n- method: %s\n- url: %s");
+    r.setParameters(
+        new Object[] {
+          "POST",
+          "https://generativelanguage.googleapis.com/v1beta/models/"
+              + "gemini-3.1-flash-lite:generateContent?key=AQ.Fake000ExampleNotARealKey00000000000000"
+        });
+
+    filter.isLoggable(r);
+
+    String url = (String) r.getParameters()[1];
+    assertThat(url).doesNotContain("AQ.Fake000ExampleNotARealKey00000000000000");
+    assertThat(url).contains("key=***REDACTED***");
+    assertThat(r.getParameters()[0]).isEqualTo("POST"); // untouched
+  }
+
+  @Test
   void leavesOrdinaryMessagesUntouched() {
     LogRecord r = new LogRecord(Level.INFO, ">>> POST /fraud-detection/initiate -> 201 (4 ms)");
     filter.isLoggable(r);
