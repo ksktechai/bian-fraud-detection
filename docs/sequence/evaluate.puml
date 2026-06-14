@@ -32,7 +32,7 @@ participant "FraudDetectionResource" as API #dae8fc
 participant "FraudDetectionService" as SVC #e1d5e7
 participant "FraudTriageService" as TRIAGE #f3e0f7
 participant "FraudTriageAgent\n@RegisterAiService" as AGENT #f3e0f7
-participant "Google Gemini\ngemini-2.0-flash" as LLM #ffe6cc
+participant "Google Gemini\ngemini-3.1-flash-lite" as LLM #ffe6cc
 database "PostgreSQL" as DB #d5e8d4
 
 autonumber "<b>0."

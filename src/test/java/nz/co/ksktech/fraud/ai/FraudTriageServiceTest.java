@@ -122,4 +122,17 @@ class FraudTriageServiceTest {
     assertThat(v.riskScore()).isEqualTo(15);
     verify(agent).triage("{\"transactionId\":\"T1\"}");
   }
+
+  @Test
+  void triageFallsBackToReviewWhenAgentThrows() {
+    // e.g. Gemini 429 rate limit or 503 high-demand surfaced by the langchain4j client
+    when(agent.triage(anyString()))
+        .thenThrow(new RuntimeException("503 This model is currently experiencing high demand"));
+
+    FraudVerdict v = service.triage("{\"transactionId\":\"T1\"}");
+
+    assertThat(v.decision()).isEqualTo("REVIEW");
+    assertThat(v.riskScore()).isEqualTo(50);
+    assertThat(v.reasoning()).contains("AI provider unavailable");
+  }
 }

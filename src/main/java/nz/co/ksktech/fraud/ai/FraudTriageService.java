@@ -38,7 +38,15 @@ public class FraudTriageService {
    * @return the parsed verdict, or a REVIEW fallback if the response cannot be parsed
    */
   public FraudVerdict triage(String transactionJson) {
-    String raw = agent.triage(transactionJson);
+    String raw;
+    try {
+      raw = agent.triage(transactionJson);
+    } catch (RuntimeException e) {
+      // The LLM call itself failed (rate limit / 503 high demand / timeout). Degrade safely to
+      // REVIEW so a transient provider outage routes the case to an analyst instead of erroring.
+      Log.warnf("Fraud triage LLM call failed, defaulting to REVIEW: %s", e.getMessage());
+      return FraudVerdict.fallback("AI provider unavailable: " + e.getMessage());
+    }
     return parse(raw);
   }
 

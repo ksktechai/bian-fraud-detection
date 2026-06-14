@@ -78,7 +78,7 @@ Use Flyway migration V1__init.sql to create the table.
 ## CONFIG (application.properties)
 - quarkus.langchain4j.chat-model.provider=${LLM_PROVIDER:ai-gemini} (BUILD-TIME; ai-gemini|ollama)
 - quarkus.langchain4j.ai.gemini.api-key=${GEMINI_API_KEY:} (note: prefix is `ai.gemini`, dotted)
-- quarkus.langchain4j.ai.gemini.chat-model.model-id=${GEMINI_MODEL:gemini-2.0-flash}
+- quarkus.langchain4j.ai.gemini.chat-model.model-id=${GEMINI_MODEL:gemini-3.1-flash-lite}
 - quarkus.langchain4j.ollama.base-url + chat-model.model-id (qwen3:30b) for the ollama path
 - %test pins the provider to ai-gemini (WireMock stubs the Gemini HTTP path) +
   %test.quarkus.langchain4j.ai.gemini.api-key=test-gemini-key (the agent is mocked/WireMock'd)

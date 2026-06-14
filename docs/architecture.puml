@@ -44,7 +44,7 @@ rectangle "Data loading" as LOAD #d0e0e3 {
 }
 
 database "PostgreSQL\nfraud_evaluation (control records)\nfraud_txn_sample (PaySim staging)\nFlyway V1__init.sql" as DB #d5e8d4
-component "Google Gemini\ngemini-2.0-flash\nGEMINI_API_KEY" as LLM #ffe6cc
+component "Google Gemini\ngemini-3.1-flash-lite\nGEMINI_API_KEY" as LLM #ffe6cc
 file "./data/*.csv\nPaySim dataset (Kaggle)" as CSV #ffe6cc
 
 Client --> API : HTTPS (JSON)

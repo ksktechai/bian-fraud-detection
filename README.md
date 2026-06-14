@@ -4,7 +4,7 @@
 
 A **BIAN Fraud Detection service domain** built on Quarkus. It exposes the BIAN verb
 vocabulary over a `FraudEvaluation` control record and runs AI triage against
-**Google Gemini** (`gemini-2.0-flash`) via LangChain4j. Transactions are sourced from the
+**Google Gemini** (`gemini-3.1-flash-lite`) via LangChain4j. Transactions are sourced from the
 PaySim synthetic dataset. (The provider is swappable to a local Ollama model — see
 [Switching the LLM provider](#switching-the-llm-provider).)
 
@@ -143,7 +143,7 @@ docker compose up -d          # Postgres on :5434
 | `app.dataset.enabled`       | `true` (`false` in test)             | `DATASET_ENABLED`   |
 | `app.logging.max-body`      | `2000`                               | `LOG_MAX_BODY`      |
 | Gemini API key              | _(none — required)_                  | `GEMINI_API_KEY`    |
-| Gemini chat model           | `gemini-2.0-flash`                   | `GEMINI_MODEL`      |
+| Gemini chat model           | `gemini-3.1-flash-lite`                   | `GEMINI_MODEL`      |
 | JDBC URL                    | `jdbc:postgresql://localhost:5434/fraud` | `DB_URL`        |
 
 ### Switching the LLM provider
