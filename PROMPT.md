@@ -17,8 +17,9 @@ Create a fresh Quarkus project named "bian-fraud-detection" in the current direc
 ## EXTENSIONS (add via quarkus-bom)
 - quarkus-rest, quarkus-rest-jackson
 - quarkus-hibernate-orm-panache, quarkus-jdbc-postgresql
-- quarkus-langchain4j-ai-gemini (Google Gemini, model gemini-2.0-flash; key from GEMINI_API_KEY)
-  (quarkus-langchain4j-ollama kept as a commented fallback for fully-local runs)
+- quarkus-langchain4j-ai-gemini AND quarkus-langchain4j-ollama (BOTH on the classpath).
+  Select the active provider at build time via quarkus.langchain4j.chat-model.provider
+  (= ${LLM_PROVIDER}, default ai-gemini). Gemini key from GEMINI_API_KEY.
 - quarkus-smallrye-openapi, quarkus-smallrye-health
 - quarkus-flyway
 - quarkus-junit5, rest-assured (test)
@@ -75,9 +76,12 @@ Use Flyway migration V1__init.sql to create the table.
   filter or interceptor already exists in fundlens, replicate its structure and naming here.
 
 ## CONFIG (application.properties)
+- quarkus.langchain4j.chat-model.provider=${LLM_PROVIDER:ai-gemini} (BUILD-TIME; ai-gemini|ollama)
 - quarkus.langchain4j.ai.gemini.api-key=${GEMINI_API_KEY:} (note: prefix is `ai.gemini`, dotted)
 - quarkus.langchain4j.ai.gemini.chat-model.model-id=${GEMINI_MODEL:gemini-2.0-flash}
-- %test.quarkus.langchain4j.ai.gemini.api-key=test-gemini-key (the agent is mocked in tests)
+- quarkus.langchain4j.ollama.base-url + chat-model.model-id (qwen3:30b) for the ollama path
+- %test pins the provider to ai-gemini (WireMock stubs the Gemini HTTP path) +
+  %test.quarkus.langchain4j.ai.gemini.api-key=test-gemini-key (the agent is mocked/WireMock'd)
 - quarkus.datasource.db-kind=postgresql + jdbc url localhost:5434/fraud
   (the spec said 5432; the host port was moved to 5434 because 5432 was already
   allocated by another local Postgres container — the container still listens on 5432)

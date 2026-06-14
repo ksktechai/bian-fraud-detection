@@ -71,21 +71,19 @@
       <artifactId>quarkus-smallrye-health</artifactId>
     </dependency>
 
-    <!-- LangChain4j — Google AI Gemini (active provider) -->
+    <!-- LangChain4j chat providers. BOTH are on the classpath; which one backs the
+         @RegisterAiService is chosen at build time by
+         quarkus.langchain4j.chat-model.provider (= ${LLM_PROVIDER}, default ai-gemini). -->
     <dependency>
       <groupId>io.quarkiverse.langchain4j</groupId>
       <artifactId>quarkus-langchain4j-ai-gemini</artifactId>
       <version>${quarkus-langchain4j.version}</version>
     </dependency>
-    <!-- Alternative local provider: uncomment to run against Ollama instead of
-         Gemini (and flip the chat-model config block in application.properties). -->
-    <!--
     <dependency>
       <groupId>io.quarkiverse.langchain4j</groupId>
       <artifactId>quarkus-langchain4j-ollama</artifactId>
       <version>${quarkus-langchain4j.version}</version>
     </dependency>
-    -->
 
 
     <!-- Test -->

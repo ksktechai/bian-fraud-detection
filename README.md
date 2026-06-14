@@ -148,15 +148,24 @@ docker compose up -d          # Postgres on :5434
 
 ### Switching the LLM provider
 
-The `FraudTriageAgent` runs on **Gemini** (`quarkus-langchain4j-ai-gemini`) by default. To run
-fully offline against a local **Ollama** model instead:
+Both the **Gemini** (`quarkus-langchain4j-ai-gemini`) and **Ollama**
+(`quarkus-langchain4j-ollama`) extensions are on the classpath. Which one backs the
+`FraudTriageAgent` is chosen by a single config value, `quarkus.langchain4j.chat-model.provider`
+(= `LLM_PROVIDER`, default `ai-gemini`):
 
-1. In `pom.xml`, uncomment the `quarkus-langchain4j-ollama` dependency.
-2. In `application.properties`, comment out the `quarkus.langchain4j.ai.gemini.*` block and
-   uncomment the `quarkus.langchain4j.ollama.*` block.
-3. Set `OLLAMA_BASE_URL` / `OLLAMA_CHAT_MODEL` in `.env`, and `ollama pull qwen3:30b`.
+```bash
+# default — Gemini
+./mvnw quarkus:dev
 
-No Java changes are needed — the agent interface is provider-agnostic.
+# fully offline — Ollama (ollama pull qwen3:30b && ollama serve first)
+LLM_PROVIDER=ollama ./mvnw quarkus:dev
+```
+
+> **Build-time selection.** quarkus-langchain4j resolves the provider at *build* time, not per
+> request. In `quarkus:dev` changing `LLM_PROVIDER` triggers a live restart; for a packaged jar,
+> set it before `./mvnw package`. No Java or `pom.xml` changes are needed — the agent interface is
+> provider-agnostic. (For a true runtime switch within one running instance you'd inject named
+> `ChatModel` beans and route in code; that isn't wired up here.)
 
 ---
 
