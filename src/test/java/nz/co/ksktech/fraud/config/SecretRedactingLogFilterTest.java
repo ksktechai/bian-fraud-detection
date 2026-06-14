@@ -28,11 +28,20 @@ class SecretRedactingLogFilterTest {
   }
 
   @Test
-  void redactsBareGoogleApiKeyAnywhere() {
+  void redactsBareLegacyGoogleApiKey() {
     LogRecord r = new LogRecord(Level.INFO, "configured key AIzaSyABCDEFGHIJKLMNOPqrstuvwx loaded");
     filter.isLoggable(r);
     assertThat(r.getMessage()).doesNotContain("AIzaSyABCDEFGHIJKLMNOPqrstuvwx");
-    assertThat(r.getMessage()).contains("AIza***REDACTED***");
+    assertThat(r.getMessage()).contains("***REDACTED-KEY***");
+  }
+
+  @Test
+  void redactsBareNewFormatGoogleApiKey() {
+    // newer "AQ.<base64url>" key format (fake placeholder)
+    LogRecord r = new LogRecord(Level.INFO, "loaded AQ.Fake000ExampleNotARealKey00000000000000 from env");
+    filter.isLoggable(r);
+    assertThat(r.getMessage()).doesNotContain("AQ.Fake000ExampleNotARealKey00000000000000");
+    assertThat(r.getMessage()).contains("***REDACTED-KEY***");
   }
 
   @Test

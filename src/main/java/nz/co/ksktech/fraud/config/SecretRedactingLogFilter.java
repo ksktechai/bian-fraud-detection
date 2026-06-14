@@ -16,10 +16,11 @@ import java.util.regex.Pattern;
 @LoggingFilter(name = "redact-secrets")
 public final class SecretRedactingLogFilter implements Filter {
 
-  // ?key=... or &key=... (value up to the next & or whitespace)
+  // ?key=... or &key=... (value up to the next & or whitespace) — masks any key format
   private static final Pattern KEY_PARAM = Pattern.compile("([?&]key=)[^&\\s\"]+");
-  // bare Google API key format, anywhere in the message
-  private static final Pattern GOOGLE_KEY = Pattern.compile("AIza[0-9A-Za-z_\\-]{10,}");
+  // bare Google API keys, anywhere in the message: legacy "AIza..." and newer "AQ.<base64url>"
+  private static final Pattern GOOGLE_KEY =
+      Pattern.compile("AIza[0-9A-Za-z_\\-]{10,}|AQ\\.[0-9A-Za-z_\\-]{20,}");
 
   @Override
   public boolean isLoggable(LogRecord record) {
@@ -28,9 +29,9 @@ public final class SecretRedactingLogFilter implements Filter {
       return true;
     }
     // fast path: only run the regexes when there is something to redact
-    if (message.indexOf("key=") >= 0 || message.indexOf("AIza") >= 0) {
+    if (message.indexOf("key=") >= 0 || message.indexOf("AIza") >= 0 || message.indexOf("AQ.") >= 0) {
       String masked = KEY_PARAM.matcher(message).replaceAll("$1***REDACTED***");
-      masked = GOOGLE_KEY.matcher(masked).replaceAll("AIza***REDACTED***");
+      masked = GOOGLE_KEY.matcher(masked).replaceAll("***REDACTED-KEY***");
       record.setMessage(masked);
     }
     return true;
