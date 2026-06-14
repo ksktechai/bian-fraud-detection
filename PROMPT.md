@@ -78,9 +78,11 @@ Use Flyway migration V1__init.sql to create the table.
   in the request URL (`?key=...`), and it does so via `Logger.infof("...url: %s...", url)` — so the
   key sits in a log-record PARAMETER, not the message string. Support wants the full HTTP view
   (url, headers, JSON body) with the key redacted, so: keep `log-requests`/`log-responses`
-  enabled (gated by `LOG_LLM`) and redact the key with a `SecretRedactingLogFilter` that masks
-  `key=...` / `AIza...` / `AQ....` in BOTH the message and every String parameter. Attach the
-  filter programmatically at startup (`LogRedactionInstaller`) — the declarative
+  enabled (gated by `LOG_LLM`) and redact with a format-agnostic `SecretRedactingLogFilter` — it
+  masks any `key=...` query-parameter value AND the exact configured key value (read from config by
+  `LogRedactionInstaller`, so it tracks rotations with no hard-coded key format), in BOTH the
+  message and every String parameter. Attach the filter programmatically at startup
+  (`LogRedactionInstaller`) — the declarative
   `quarkus.log.console.filter` / `@LoggingFilter` did NOT reliably attach. A wiring test builds the
   exact `ExtLogRecord` (PRINTF, key-in-parameter) the client emits and asserts the FORMATTED output
   is redacted, so this can't silently regress.
