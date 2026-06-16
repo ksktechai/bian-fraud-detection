@@ -134,6 +134,21 @@ docker compose up -d          # Postgres on :5434
 - Swagger UI: <http://localhost:8080/q/swagger-ui>
 - Health: <http://localhost:8080/q/health>
 
+### Browse the database (optional pgAdmin)
+
+pgAdmin is bundled as an optional `tools`-profile service (it does **not** start with the normal
+`docker compose up`):
+
+```bash
+docker compose --profile tools up -d pgadmin   # then open http://localhost:5050
+```
+
+Login `admin@example.com` / `admin` (override with `PGADMIN_EMAIL` / `PGADMIN_PASSWORD`). Register
+a server with host **`fraud-postgres`**, port **`5432`**, db/user/pass `fraud` (the Docker network
+name + internal port — not `localhost:5434`, since pgAdmin connects from inside Docker). Tables:
+`fraud_evaluation` (control records) and `fraud_txn_sample` (PaySim staging). Or just use psql:
+`docker exec -it fraud-postgres psql -U fraud -d fraud`.
+
 ### Configuration knobs
 
 | Property                    | Default                              | Env override        |

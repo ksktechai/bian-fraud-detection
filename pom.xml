@@ -15,7 +15,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.version>3.33.2</quarkus.platform.version>
-    <quarkus-langchain4j.version>1.4.0</quarkus-langchain4j.version>
+    <quarkus-langchain4j.version>1.10.0</quarkus-langchain4j.version>
     <surefire-plugin.version>3.5.4</surefire-plugin.version>
     <skipITs>true</skipITs>
   </properties>
@@ -114,6 +114,13 @@
       <version>3.27.3</version>
       <scope>test</scope>
     </dependency>
+    <!-- Test coverage: quarkus-jacoco instruments @QuarkusTest runs correctly; the
+         jacoco-maven-plugin below merges in the plain unit tests and enforces the threshold. -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jacoco</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -143,6 +150,56 @@
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.13</version>
+        <executions>
+          <!-- agent for the plain (non-Quarkus) unit tests; appends to the file quarkus-jacoco uses -->
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <destFile>${project.build.directory}/jacoco-quarkus.exec</destFile>
+              <append>true</append>
+            </configuration>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco-quarkus.exec</dataFile>
+            </configuration>
+          </execution>
+          <execution>
+            <id>check-90</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco-quarkus.exec</dataFile>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.90</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

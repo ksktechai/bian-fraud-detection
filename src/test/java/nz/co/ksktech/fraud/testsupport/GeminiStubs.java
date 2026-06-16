@@ -15,8 +15,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public final class GeminiStubs {
 
-  /** WireMock path regex for both default and overridden base URLs. */
-  public static final String GENERATE_CONTENT_PATH = "/v1beta/models/.*:generateContent";
+  /**
+   * WireMock path regex for the Gemini generateContent endpoint. Version-agnostic: langchain4j
+   * 1.4.x hit {@code /v1beta/models/{model}:generateContent} but 1.10.x (with a base-url override)
+   * hits {@code /models/{model}:generateContent}, so the {@code v1beta} segment is optional.
+   */
+  public static final String GENERATE_CONTENT_PATH = "/(v1beta/)?models/.*:generateContent";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

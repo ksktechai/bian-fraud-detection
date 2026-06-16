@@ -70,7 +70,7 @@ public class DataLoader {
       return;
     }
     try {
-      load();
+      load(Path.of(datasetPath), maxRows);
     } catch (Exception e) {
       // A bad/missing dataset must not stop the service from booting.
       Log.errorf(e, "Dataset load failed: %s", e.getMessage());
@@ -78,17 +78,19 @@ public class DataLoader {
   }
 
   /**
-   * Loads CSV rows into the staging table unless it is already populated.
+   * Loads CSV rows from {@code dir} into the staging table unless it is already populated. Package
+   * visible so it can be driven directly from tests.
    *
+   * @param dir the directory to scan for {@code *.csv} files
+   * @param maxRows the maximum number of rows to load across all files
    * @throws IOException if a CSV file cannot be read
    * @throws SQLException if a database error occurs
    */
-  private void load() throws IOException, SQLException {
+  void load(Path dir, long maxRows) throws IOException, SQLException {
     if (isPopulated()) {
       Log.info("Staging table fraud_txn_sample already populated; skipping dataset load.");
       return;
     }
-    Path dir = Path.of(datasetPath);
     if (!Files.isDirectory(dir)) {
       Log.warnf("Dataset path %s is not a directory; nothing to load.", dir.toAbsolutePath());
       return;
@@ -103,7 +105,7 @@ public class DataLoader {
           if (loaded >= maxRows) {
             break;
           }
-          loaded = loadFile(csv, ps, loaded);
+          loaded = loadFile(csv, ps, loaded, maxRows);
         }
         ps.executeBatch();
         conn.commit();
@@ -112,7 +114,7 @@ public class DataLoader {
         throw e;
       }
     }
-    Log.infof("Loaded %d PaySim rows into fraud_txn_sample from %s.", loaded, datasetPath);
+    Log.infof("Loaded %d PaySim rows into fraud_txn_sample from %s.", loaded, dir);
   }
 
   /**
@@ -121,11 +123,12 @@ public class DataLoader {
    * @param csv the CSV file
    * @param ps the prepared insert statement
    * @param loadedSoFar rows already loaded from earlier files
+   * @param maxRows the maximum number of rows to load across all files
    * @return the cumulative loaded-row count
    * @throws IOException if the file cannot be read
    * @throws SQLException if a batch insert fails
    */
-  private long loadFile(Path csv, PreparedStatement ps, long loadedSoFar)
+  private long loadFile(Path csv, PreparedStatement ps, long loadedSoFar, long maxRows)
       throws IOException, SQLException {
     long loaded = loadedSoFar;
     int sinceFlush = 0;
